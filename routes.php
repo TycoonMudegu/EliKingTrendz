@@ -32,6 +32,12 @@ $routes = [
     '/Author' => 'app/Controllers/Authorinput.php',
 
     '/AdminDash' => 'app/views/admin/admindash..php',
+    '/Analitics' => 'app/views/admin/analytics.php',
+    '/Articles' => 'app/views/admin/articles.php',
+    '/AdminProcess' => 'app/Controllers/Admin.php',
+
+
+
 
 
 

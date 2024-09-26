@@ -19,9 +19,8 @@ module.exports = {
         'primary-dark-white': '#bfbfbf',
         'primary-gray': '#E6F0DC',
         'primary-dark-gray': '#99a386',
-        'primary': '#3B82F6',
-        'secondary': '#10B981',
-        'accent': '#8B5CF6',
+        'primary': '#000000',
+        'secondary': '#FFFFFF',
     },
       fontFamily: {
         Ptsans: ['PT Sans', 'sans-serif'],

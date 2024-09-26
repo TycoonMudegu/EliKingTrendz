@@ -1,231 +1,244 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modern Dark Theme News Blog Admin Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+<?php
+include_once 'app/config/dbconfig.php';
+include_once 'app/Controllers/AdminController.php';
+
+// Determine the current page (defaults to 1)
+$currentPage = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+
+$adminController = new AdminController($pdo);
+$metrics = $adminController->getDashboardMetrics();
+// Fetch the posts and pagination data
+$data = $adminController->getRecentArticlesWithPagination($currentPage);
+$posts = $data['posts'];
+$totalPages = $data['total_pages'];
+$currentPage = $data['current_page'];
+?>
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <?php include 'app/views/partials/adminnav.php' ?>
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto">
+            <!-- Top bar -->
+            <?php include 'app/views/partials/adminheadder.php' ?>
+
+            <!-- Dashboard content -->
+            <div class="p-6">
+                <!-- Quick stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-500 rounded-full p-3">
+                                <i class="fas fa-newspaper text-white"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">Today's Posts</p>
+                                <p class="text-lg font-semibold"><?php echo $metrics['total_posts']; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-500 rounded-full p-3">
+                                <i class="fas fa-eye text-white"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">Total Views</p>
+                                <p class="text-lg font-semibold"><?php echo $metrics['total_views']; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-yellow-500 rounded-full p-3">
+                                <i class="fas fa-users text-white"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">New Subscribers</p>
+                                <p class="text-lg font-semibold"><?php echo $metrics['new_subscribers']; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-red-500 rounded-full p-3">
+                                <i class="fas fa-comment-alt text-white"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm text-gray-600">New Comments</p>
+                                <p class="text-lg font-semibold"><?php echo $metrics['new_comments']; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-semibold mb-4">Readership by Category</h3>
+                        <div class="h-64">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-semibold mb-4">Views Over Time</h3>
+                        <div class="h-64">
+                            <canvas id="viewsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <!-- Recent Articles Table -->
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="flex items-center justify-between px-6 py-4 border-b">
+                        <h3 class="text-lg font-semibold">Recent Articles</h3>
+                        <a href="#" class="text-blue-600 hover:underline">Show All</a>
+                    </div>
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- AJAX will load content here -->
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination controls -->
+                    <div class="px-6 py-4">
+                        <nav class="flex justify-end">
+                            <ul id="pagination-controls" class="inline-flex items-center -space-x-px">
+                                <!-- AJAX will load pagination controls here -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'primary-green': '#52ff3f',
-                        'primary-dark-green': '#006400',
-                        'primary-blue': '#0033cc',
-                        'primary-dark-blue': '#001a66',
-                        'primary-blue2': '#bddbe8',
-                        'primary-dark-blue2': '#5a7c85',
-                        'primary-green2': '#99cc66',
-                        'primary-dark-green2': '#4d6633',
-                        'primary-white': '#FFFFFF',
-                        'primary-dark-white': '#bfbfbf',
-                        'primary-gray': '#E6F0DC',
-                        'primary-dark-gray': '#99a386',
-                        primary: '#3B82F6',
-                        secondary: '#10B981',
-                        accent: '#8B5CF6',
+        function loadTable(page = 1) {
+        $.ajax({
+            url: 'AdminProcess',  // The intermediary page handling the request
+            type: 'POST',                  // Use POST instead of GET
+            data: {
+                action: 'load_table',
+                page: page
+            },
+            dataType: 'json',
+            success: function(response) {
+                // Update the table body with the new data
+                let tableBody = '';
+                response.data.forEach(function(post) {
+                    tableBody += `<tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">${post.title}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">${post.author}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">${post.category}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">${post.views_count}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        ${post.status === 'published' ? 
+                                            '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Published</span>' : 
+                                            '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Draft</span>'
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <a href="#" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                                    </td>
+                                </tr>`;
+                });
+                $('#table-body').html(tableBody);
+
+                // Update pagination controls
+                let pagination = '';
+                if (response.currentPage > 1) {
+                    pagination += `<li>
+                                    <a href="#" onclick="loadTable(${response.currentPage - 1})" class="px-3 py-2 border border-gray-300 text-gray-500 hover:bg-gray-100">Previous</a>
+                                   </li>`;
+                }
+                for (let page = 1; page <= response.totalPages; page++) {
+                    pagination += `<li>
+                                    <a href="#" onclick="loadTable(${page})" class="px-3 py-2 border ${page === response.currentPage ? 'bg-blue-600 text-white' : 'border-gray-300 text-gray-500 hover:bg-gray-100'}">${page}</a>
+                                   </li>`;
+                }
+                if (response.currentPage < response.totalPages) {
+                    pagination += `<li>
+                                    <a href="#" onclick="loadTable(${response.currentPage + 1})" class="px-3 py-2 border border-gray-300 text-gray-500 hover:bg-gray-100">Next</a>
+                                   </li>`;
+                }
+                $('#pagination-controls').html(pagination);
+            }
+        });
+    }
+
+    // Load the first page on document ready
+    $(document).ready(function() {
+        loadTable();
+    });
+
+        // Sample chart data and configuration
+        const ctx1 = document.getElementById('categoryChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: ['Politics', 'Technology', 'Sports', 'Entertainment', 'Business'],
+                datasets: [{
+                    label: 'Readership',
+                    data: [12, 19, 3, 5, 2],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
                     }
                 }
             }
-        }
+        });
+
+        const ctx2 = document.getElementById('viewsChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Views',
+                    data: [12, 19, 3, 5, 2, 3],
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
     </script>
-</head>
-<body class="bg-primary-dark-blue text-primary-white">
-    <div class="flex h-screen">
-        <!-- Sticky Sidebar -->
-        <aside class="w-64 bg-primary-dark-blue2 text-primary-white overflow-y-auto sticky top-0 h-screen">
-            <div class="p-4">
-                <h2 class="text-2xl font-bold mb-6">News Blog Admin</h2>
-                <nav>
-                    <ul class="space-y-2">
-                        <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">Dashboard</a></li>
-                        <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">Authors</a></li>
-                        <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">News</a></li>
-                        <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">Users</a></li>
-                        <li><a href="#" class="block py-2 px-4 rounded hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">Settings</a></li>
-                    </ul>
-                </nav>
-            </div>
-            <div class="absolute bottom-0 w-full p-4">
-                <div class="flex items-center mb-4">
-                    <img src="/api/placeholder/32/32" alt="Admin Avatar" class="w-8 h-8 rounded-full mr-2">
-                    <span>Signed in as Admin</span>
-                </div>
-                <button class="w-full bg-primary-dark-blue text-primary-white py-2 px-4 rounded hover:bg-primary-blue hover:text-primary-white transition duration-200">Log out</button>
-            </div>
-        </aside>
-
-        <!-- Main content -->
-        <div class="flex-1 overflow-auto">
-            <header class="bg-primary-dark-blue2 shadow-sm p-4 sticky top-0 z-10">
-                <h1 class="text-2xl font-bold text-primary-white">Dashboard</h1>
-            </header>
-
-            <main class="p-6">
-                <!-- Metrics Overview -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 border-l-4 border-primary-green hover:shadow-lg transition duration-200 cursor-pointer">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 mr-4">
-                                <i class="fas fa-chart-line text-3xl text-primary-green"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-primary-dark-white">Trending News</p>
-                                <p class="text-2xl font-semibold text-primary-white">12</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 border-l-4 border-primary-green2 hover:shadow-lg transition duration-200 cursor-pointer">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 mr-4">
-                                <i class="fas fa-users text-3xl text-primary-green2"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-primary-dark-white">Total Authors</p>
-                                <p class="text-2xl font-semibold text-primary-white">87</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 border-l-4 border-primary-blue hover:shadow-lg transition duration-200 cursor-pointer">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 mr-4">
-                                <i class="fas fa-user-friends text-3xl text-primary-blue"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-primary-dark-white">Total Users</p>
-                                <p class="text-2xl font-semibold text-primary-white">2,453</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 border-l-4 border-primary-green hover:shadow-lg transition duration-200 cursor-pointer">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 mr-4">
-                                <i class="fas fa-bolt text-3xl text-primary-green"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-primary-dark-white">Breaking News</p>
-                                <p class="text-2xl font-semibold text-primary-white">3</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Charts and Tables -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                    <!-- Top Countries by Users -->
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 hover:shadow-lg transition duration-200">
-                        <h2 class="text-xl font-semibold mb-4 text-primary-white">Top Countries by Users</h2>
-                        <div class="space-y-4">
-                            <div class="flex items-center">
-                                <span class="w-20 text-sm text-primary-dark-white">USA</span>
-                                <div class="flex-1 bg-primary-dark-blue rounded-full h-3">
-                                    <div class="bg-primary-green rounded-full h-3" style="width: 75%;"></div>
-                                </div>
-                                <span class="ml-4 text-sm font-medium text-primary-white">75%</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-20 text-sm text-primary-dark-white">UK</span>
-                                <div class="flex-1 bg-primary-dark-blue rounded-full h-3">
-                                    <div class="bg-primary-green2 rounded-full h-3" style="width: 60%;"></div>
-                                </div>
-                                <span class="ml-4 text-sm font-medium text-primary-white">60%</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-20 text-sm text-primary-dark-white">Canada</span>
-                                <div class="flex-1 bg-primary-dark-blue rounded-full h-3">
-                                    <div class="bg-primary-blue rounded-full h-3" style="width: 45%;"></div>
-                                </div>
-                                <span class="ml-4 text-sm font-medium text-primary-white">45%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Top Authors -->
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 hover:shadow-lg transition duration-200">
-                        <h2 class="text-xl font-semibold mb-4 text-primary-white">Top Authors</h2>
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="text-left text-xs font-semibold text-primary-dark-white uppercase">
-                                        <th class="pb-3 pr-2">Author</th>
-                                        <th class="pb-3 pr-2">Posts</th>
-                                        <th class="pb-3">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="text-sm">
-                                    <tr class="border-b border-primary-dark-blue">
-                                        <td class="py-3 pr-2">John Doe</td>
-                                        <td class="py-3 pr-2">42</td>
-                                        <td class="py-3"><span class="bg-primary-green text-primary-dark-blue py-1 px-2 rounded-full text-xs">Approved</span></td>
-                                    </tr>
-                                    <tr class="border-b border-primary-dark-blue">
-                                        <td class="py-3 pr-2">Jane Smith</td>
-                                        <td class="py-3 pr-2">38</td>
-                                        <td class="py-3"><span class="bg-primary-green text-primary-dark-blue py-1 px-2 rounded-full text-xs">Approved</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="py-3 pr-2">Bob Johnson</td>
-                                        <td class="py-3 pr-2">27</td>
-                                        <td class="py-3"><span class="bg-primary-green2 text-primary-dark-blue py-1 px-2 rounded-full text-xs">Pending</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Recent Activity and Messages -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Recent Activity -->
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 hover:shadow-lg transition duration-200">
-                        <h2 class="text-xl font-semibold mb-4 text-primary-white">Recent Activity</h2>
-                        <ul class="space-y-4">
-                            <li class="flex items-center bg-primary-dark-blue p-3 rounded-lg hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">
-                                <div class="bg-primary-blue p-2 rounded-full mr-3">
-                                    <i class="fas fa-user-plus text-primary-white"></i>
-                                </div>
-                                <span class="text-sm">New author registered: Alice Brown</span>
-                            </li>
-                            <li class="flex items-center bg-primary-dark-blue p-3 rounded-lg hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">
-                                <div class="bg-primary-green2 p-2 rounded-full mr-3">
-                                    <i class="fas fa-newspaper text-primary-white"></i>
-                                </div>
-                                <span class="text-sm">New article published: "The Future of AI"</span>
-                            </li>
-                            <li class="flex items-center bg-primary-dark-blue p-3 rounded-lg hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">
-                                <div class="bg-primary-green p-2 rounded-full mr-3">
-                                    <i class="fas fa-exclamation-triangle text-primary-white"></i>
-                                </div>
-                                <span class="text-sm">Breaking news: "Major Economic Shift"</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- Messages -->
-                    <div class="bg-primary-dark-blue2 rounded-xl shadow-sm p-6 hover:shadow-lg transition duration-200">
-                        <h2 class="text-xl font-semibold mb-4 text-primary-white">Messages</h2>
-                        <ul class="space-y-4">
-                            <li class="flex items-start bg-primary-dark-blue p-3 rounded-lg hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">
-                                <img src="/api/placeholder/40/40" alt="User Avatar" class="w-10 h-10 rounded-full mr-3">
-                                <div>
-                                    <p class="font-semibold">Support Team</p>
-                                    <p class="text-sm text-primary-dark-white">New feature request: dark mode for the dashboard</p>
-                                </div>
-                            </li>
-                            <li class="flex items-start bg-primary-dark-blue p-3 rounded-lg hover:bg-primary-blue2 hover:text-primary-dark-blue transition duration-200">
-                                <img src="/api/placeholder/40/40" alt="User Avatar" class="w-10 h-10 rounded-full mr-3">
-                                <div>
-                                    <p class="font-semibold">John Doe</p>
-                                    <p class="text-sm text-primary-dark-white">Question about article submission process</p>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
 </body>
 </html>
