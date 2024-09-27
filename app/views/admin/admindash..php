@@ -75,22 +75,23 @@ $currentPage = $data['current_page'];
 
                 <!-- Charts -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <h3 class="text-lg font-semibold mb-4">Readership by Category</h3>
-                        <div class="h-64">
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <h3 class="text-lg font-semibold mb-4">Views Over Time</h3>
-                        <div class="h-64">
-                            <canvas id="viewsChart"></canvas>
-                        </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-lg font-semibold mb-4">Readership by Category</h3>
+                    <div class="h-64">
+                        <canvas id="categoryChart"></canvas>
                     </div>
                 </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-lg font-semibold mb-4">Views Over Time</h3>
+                    <div class="h-64">
+                        <canvas id="viewsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
 
                 <!-- Recent Articles Table -->
-                <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="bg-white rounded-lg shadow overflow-auto">
                     <div class="flex items-center justify-between px-6 py-4 border-b">
                         <h3 class="text-lg font-semibold">Recent Articles</h3>
                         <a href="#" class="text-blue-600 hover:underline">Show All</a>
@@ -127,146 +128,176 @@ $currentPage = $data['current_page'];
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        function loadTable(page = 1) {
+    const baseUrl = 'AdminProcess'; // Define the base URL once
+
+            function loadTable(page = 1) {
+            // Show loading indicator
+            $('#loading-indicator').show();
+
+            $.ajax({
+                url: baseUrl,
+                type: 'POST',
+                data: {
+                    action: 'load_table',
+                    page: page
+                },
+                dataType: 'json',
+                success: function(response) {
+                    // Hide loading indicator
+                    $('#loading-indicator').hide();
+
+                    // Update the table body with new data
+                    let tableBody = response.posts.map(post => `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">${post.title}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${post.author}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${post.category}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${post.views_count}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${post.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${post.status === 'published' ? 'Published' : 'Draft'}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <a href="#" class="text-indigo-600 hover:text-indigo-900">Unpublish</a>
+                            </td>
+                        </tr>
+                    `).join('');
+                    $('#table-body').html(tableBody);
+
+                    // Update pagination controls
+                    let pagination = '';
+                    if (response.total_pages > 1) {
+                        if (response.current_page > 1) {
+                            pagination += `<li>
+                                <a href="#" onclick="loadTable(${response.current_page - 1})" class="px-3 py-2 border border-gray-300 text-gray-500 hover:bg-gray-100">Previous</a>
+                            </li>`;
+                        }
+                        for (let page = 1; page <= response.total_pages; page++) {
+                            pagination += `<li>
+                                <a href="#" onclick="loadTable(${page})" class="px-3 py-2 border ${page === response.current_page ? 'bg-blue-600 text-white' : 'border-gray-300 text-gray-500 hover:bg-gray-100'}">${page}</a>
+                            </li>`;
+                        }
+                        if (response.current_page < response.total_pages) {
+                            pagination += `<li>
+                                <a href="#" onclick="loadTable(${response.current_page + 1})" class="px-3 py-2 border border-gray-300 text-gray-500 hover:bg-gray-100">Next</a>
+                            </li>`;
+                        }
+                    }
+                    $('#pagination-controls').html(pagination);
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error loading data: ", status, error);
+                    $('#table-body').html('<tr><td colspan="6" class="text-center">Error loading data.</td></tr>');
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            loadTable();
+
+        // Fetch chart data from the server
         $.ajax({
-            url: 'AdminProcess',  // The intermediary page handling the request
-            type: 'POST',                  // Use POST instead of GET
-            data: {
-                action: 'load_table',
-                page: page
-            },
-            dataType: 'json',
-            success: function(response) {
-                // Update the table body with the new data
-                let tableBody = '';
-                response.data.forEach(function(post) {
-                    tableBody += `<tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">${post.title}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">${post.author}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">${post.category}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">${post.views_count}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        ${post.status === 'published' ? 
-                                            '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Published</span>' : 
-                                            '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Draft</span>'
-                                        }
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <a href="#" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                                    </td>
-                                </tr>`;
-                });
-                $('#table-body').html(tableBody);
-
-                // Update pagination controls
-                let pagination = '';
-                if (response.currentPage > 1) {
-                    pagination += `<li>
-                                    <a href="#" onclick="loadTable(${response.currentPage - 1})" class="px-3 py-2 border border-gray-300 text-gray-500 hover:bg-gray-100">Previous</a>
-                                   </li>`;
-                }
-                for (let page = 1; page <= response.totalPages; page++) {
-                    pagination += `<li>
-                                    <a href="#" onclick="loadTable(${page})" class="px-3 py-2 border ${page === response.currentPage ? 'bg-blue-600 text-white' : 'border-gray-300 text-gray-500 hover:bg-gray-100'}">${page}</a>
-                                   </li>`;
-                }
-                if (response.currentPage < response.totalPages) {
-                    pagination += `<li>
-                                    <a href="#" onclick="loadTable(${response.currentPage + 1})" class="px-3 py-2 border border-gray-300 text-gray-500 hover:bg-gray-100">Next</a>
-                                   </li>`;
-                }
-                $('#pagination-controls').html(pagination);
-            }
-        });
-    }
-
-    // Load the first page on document ready
-    $(document).ready(function() {
-        loadTable();
-    });
-
-    $(document).ready(function() {
-        // Fetch the chart data from the server
-        $.ajax({
-            url: 'AdminProcess',  // The PHP endpoint we just created
+            url: baseUrl, // Using the same baseUrl
             method: 'POST',
             data: { action: 'load_chart_data' },
             dataType: 'json',
             success: function(response) {
                 // Prepare data for readership by category chart
-                let categories = [];
-                let readershipCounts = [];
-                response.readershipByCategory.forEach(function(categoryData) {
-                    categories.push(categoryData.category_name); // Adjusted to use category_name
-                    readershipCounts.push(categoryData.readership_count);
-                });
+                let categories = response.readershipByCategory.map(categoryData => categoryData.name);
+                let readershipCounts = response.readershipByCategory.map(categoryData => parseInt(categoryData.readership_count, 10));
 
-                // Create the readership by category chart
+                // Create readership by category bar chart
                 var categoryChartCtx = document.getElementById('categoryChart').getContext('2d');
                 new Chart(categoryChartCtx, {
-                    type: 'pie',  // Pie chart for categories
+                    type: 'bar',
                     data: {
                         labels: categories,
                         datasets: [{
+                            label: 'Readership',
                             data: readershipCounts,
-                            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'],
-                            hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        title: {
-                            display: true,
-                            text: 'Readership by Category'
-                        }
-                    }
-                });
-
-                // Prepare data for views over time chart
-                let dates = [];
-                let views = [];
-                response.viewsOverTime.forEach(function(viewData) {
-                    dates.push(viewData.date);
-                    views.push(viewData.total_views);
-                });
-
-                // Create the views over time chart
-                var viewsChartCtx = document.getElementById('viewsChart').getContext('2d');
-                new Chart(viewsChartCtx, {
-                    type: 'line',  // Line chart for views over time
-                    data: {
-                        labels: dates,
-                        datasets: [{
-                            label: 'Views',
-                            data: views,
                             backgroundColor: 'rgba(54, 162, 235, 0.2)',
                             borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 2,
-                            fill: true
+                            borderWidth: 1
                         }]
                     },
                     options: {
                         responsive: true,
-                        title: {
-                            display: true,
-                            text: 'Views Over Time'
-                        },
+                        title: { display: true, text: 'Readership by Category' },
                         scales: {
-                            x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'day'
-                                }
-                            }
+                            y: { beginAtZero: true }
                         }
                     }
                 });
+
+ // Prepare data for views over time chart
+ let dates = response.viewsOverTime.map(viewData => moment(viewData.date));
+    let views = response.viewsOverTime.map(viewData => parseInt(viewData.total_views, 10));
+
+    // Filter out dates with zero views
+    const filteredData = dates.map((date, index) => ({
+        x: date,
+        y: views[index]
+    })).filter(item => item.y > 0);
+
+    if (filteredData.length > 0) {
+        // Create views over time line chart
+        var viewsChartCtx = document.getElementById('viewsChart').getContext('2d');
+        new Chart(viewsChartCtx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Views',
+                    data: filteredData,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    fill: true
+                }]
             },
-            error: function(xhr, status, error) {
-                console.error('Failed to fetch data:', error);
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Views Over Time'
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'YYYY-MM-DD'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Total Views'
+                        }
+                    }
+                }
             }
         });
+    } else {
+        // Handle case with no views
+        console.log('No views data available for chart display.');
+    }
+},
+error: function(xhr, status, error) {
+    console.error('Failed to fetch data:', error);
+}
     });
-    </script>
+});
+</script>
+
 </body>
 </html>

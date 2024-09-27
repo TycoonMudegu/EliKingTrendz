@@ -34,4 +34,29 @@ class AdminController {
         ];
     }
 
+    // Function to load chart data
+    public function loadChartData() {
+        $readership = $this->AdminModel->getCategoryReadership();
+        $viewsOverTime = $this->AdminModel->getViewsOverTime();
+
+        return [
+            'readershipByCategory' => $readership,
+            'viewsOverTime' => $viewsOverTime
+        ];
+    }
+
+    public function loadTableDataArticles() {
+        // Get filter inputs
+        $search = $_POST['search'] ?? '';
+        $category = $_POST['category'] ?? '';
+        $author = $_POST['author'] ?? '';
+        $status = $_POST['status'] ?? '';
+
+        // Get articles from the model
+        $articlesData = $this->AdminModel->getArticles($search, $category, $author, $status);
+        
+        // Return the data as JSON
+        echo json_encode($articlesData);
+    }
+
 }
