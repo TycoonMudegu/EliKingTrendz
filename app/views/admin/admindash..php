@@ -88,6 +88,7 @@ $currentPage = $data['current_page'];
                         </div>
                     </div>
                 </div>
+
                 <!-- Recent Articles Table -->
                 <div class="bg-white rounded-lg shadow overflow-hidden">
                     <div class="flex items-center justify-between px-6 py-4 border-b">
@@ -184,61 +185,88 @@ $currentPage = $data['current_page'];
         loadTable();
     });
 
-        // Sample chart data and configuration
-        const ctx1 = document.getElementById('categoryChart').getContext('2d');
-        new Chart(ctx1, {
-            type: 'bar',
-            data: {
-                labels: ['Politics', 'Technology', 'Sports', 'Entertainment', 'Business'],
-                datasets: [{
-                    label: 'Readership',
-                    data: [12, 19, 3, 5, 2],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.2)',
-                        'rgba(54, 162, 235, 0.2)',
-                        'rgba(255, 206, 86, 0.2)',
-                        'rgba(75, 192, 192, 0.2)',
-                        'rgba(153, 102, 255, 0.2)'
-                    ],
-                    borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(153, 102, 255, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
+    $(document).ready(function() {
+        // Fetch the chart data from the server
+        $.ajax({
+            url: 'AdminProcess',  // The PHP endpoint we just created
+            method: 'POST',
+            data: { action: 'load_chart_data' },
+            dataType: 'json',
+            success: function(response) {
+                // Prepare data for readership by category chart
+                let categories = [];
+                let readershipCounts = [];
+                response.readershipByCategory.forEach(function(categoryData) {
+                    categories.push(categoryData.category_name); // Adjusted to use category_name
+                    readershipCounts.push(categoryData.readership_count);
+                });
 
-        const ctx2 = document.getElementById('viewsChart').getContext('2d');
-        new Chart(ctx2, {
-            type: 'line',
-            data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                datasets: [{
-                    label: 'Views',
-                    data: [12, 19, 3, 5, 2, 3],
-                    borderColor: 'rgb(75, 192, 192)',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
+                // Create the readership by category chart
+                var categoryChartCtx = document.getElementById('categoryChart').getContext('2d');
+                new Chart(categoryChartCtx, {
+                    type: 'pie',  // Pie chart for categories
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            data: readershipCounts,
+                            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'],
+                            hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        title: {
+                            display: true,
+                            text: 'Readership by Category'
+                        }
                     }
-                }
+                });
+
+                // Prepare data for views over time chart
+                let dates = [];
+                let views = [];
+                response.viewsOverTime.forEach(function(viewData) {
+                    dates.push(viewData.date);
+                    views.push(viewData.total_views);
+                });
+
+                // Create the views over time chart
+                var viewsChartCtx = document.getElementById('viewsChart').getContext('2d');
+                new Chart(viewsChartCtx, {
+                    type: 'line',  // Line chart for views over time
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: 'Views',
+                            data: views,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        title: {
+                            display: true,
+                            text: 'Views Over Time'
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day'
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to fetch data:', error);
             }
         });
+    });
     </script>
 </body>
 </html>
